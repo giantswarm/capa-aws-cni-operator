@@ -1,10 +1,10 @@
 package project
 
 var (
-	description = "The template-operator does something."
+	description = "The capa-aws-cni-operator does something."
 	gitSHA      = "n/a"
-	name        = "template-operator"
-	source      = "https://github.com/giantswarm/template-operator"
+	name        = "capa-aws-cni-operator"
+	source      = "https://github.com/giantswarm/capa-aws-cni-operator"
 	version     = "0.1.0-dev"
 )
 

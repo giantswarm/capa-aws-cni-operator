@@ -1,4 +1,4 @@
-module github.com/giantswarm/template-operator
+module github.com/giantswarm/capa-aws-cni-operator
 
 go 1.16
 
