@@ -118,7 +118,6 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 			logger.Error(err, "failed to remove finalizer on AWSCluster")
 			return ctrl.Result{}, err
 		}
-
 	} else {
 		err = cniService.Reconcile()
 		if err != nil {
@@ -126,14 +125,12 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		}
 
 		// add finalizer to AWSCluster
-
 		controllerutil.AddFinalizer(awsCluster, key.FinalizerName)
 		err = r.Update(ctx, awsCluster)
 		if err != nil {
 			logger.Error(err, "failed to add finalizer on AWSCluster")
 			return ctrl.Result{}, err
 		}
-
 	}
 
 	return ctrl.Result{
