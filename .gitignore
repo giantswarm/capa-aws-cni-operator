@@ -1,4 +1,4 @@
 *.swp
 TODO
-/template-operator
+/capa-aws-cni-operator
 !vendor/**
