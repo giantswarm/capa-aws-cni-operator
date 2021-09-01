@@ -98,6 +98,7 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		c := cni.CNIConfig{
 			AWSSession: awsClientSession,
 			CtrlClient: wcClient,
+			CNICIDR:    r.DefaultCNICIDR, // we use default for now, but we might need a way how to get specify per cluster
 		}
 		cniService, err = cni.New(c)
 		if err != nil {
