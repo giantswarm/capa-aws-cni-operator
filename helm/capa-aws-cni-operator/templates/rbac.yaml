@@ -14,43 +14,28 @@ rules:
   - apiGroups:
       - ""
     resources:
-      - configmaps
-      - namespaces
+      - secrets
     verbs:
-      - create
-      - update
-      - delete
       - get
       - list
   - apiGroups:
-      - ""
+      - cluster.x-k8s.io
+      - infrastructure.cluster.x-k8s.io
     resources:
-      - serviceaccounts
-    verbs:
-      - create
-  - apiGroups:
-      - "networking.k8s.io"
-    resources:
-      - networkpolicies
-    verbs:
-      - create
-  - apiGroups:
-      - "rbac.authorization.k8s.io"
-    resources:
-      - clusterrolebindings
-    verbs:
-      - create
-  - apiGroups:
-      - apiextensions.k8s.io
-    resources:
-      - customresourcedefinitions
-    verbs:
-      - "*"
-  - nonResourceURLs:
-      - "/"
-      - "/healthz"
+      - awsclusters
+      - awsclusters/status
+      - awsclusterroleidentities
+      - awsclusterroleidentities/status
+      - awsclustercontrolleridentities
+      - awsclusterstaticidentities
+      - clusters
+      - clusters/statu
     verbs:
       - get
+      - list
+      - patch
+      - update
+      - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
