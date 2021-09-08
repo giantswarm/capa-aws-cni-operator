@@ -67,6 +67,35 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 
 	logger = logger.WithValues("cluster", clusterName)
 
+	if awsCluster.Spec.NetworkSpec.VPC.ID == "" {
+		logger.Info("AWSCluster do not have vpc id set yet")
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: time.Minute * 2,
+		}, nil
+	}
+
+	if len(awsCluster.Spec.NetworkSpec.Subnets.GetUniqueZones()) == 0 {
+		logger.Info("AWSCluster do not have subnets set yet")
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: time.Minute * 2,
+		}, nil
+	}
+
+	if len(awsCluster.Status.Network.SecurityGroups) == 0 {
+		logger.Info("AWSCluster do not have security group set yet")
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: time.Minute * 2,
+		}, nil
+	}
+
+	wcClient, err := key.GetWCK8sClient(ctx, r.Client, clusterName)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	var awsClientGetter *awsclient.AwsClient
 	{
 		c := awsclient.AWSClientConfig{
@@ -87,18 +116,25 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		return ctrl.Result{}, err
 	}
 
-	var cniService *cni.CNIService
+	var clusterSecurityGroupIDs []string
 	{
-
-		wcClient, err := key.GetWCK8sClient(ctx, r.Client, clusterName)
-		if err != nil {
-			return ctrl.Result{}, err
+		for _, sg := range awsCluster.Status.Network.SecurityGroups {
+			clusterSecurityGroupIDs = append(clusterSecurityGroupIDs, sg.ID)
 		}
 
+	}
+
+	var cniService *cni.CNIService
+	{
 		c := cni.CNIConfig{
-			AWSSession: awsClientSession,
-			CtrlClient: wcClient,
-			CNICIDR:    r.DefaultCNICIDR, // we use default for now, but we might need a way how to get specify per cluster
+			AWSSession:              awsClientSession,
+			ClusterName:             clusterName,
+			ClusterSecurityGroupIDs: clusterSecurityGroupIDs,
+			CtrlClient:              wcClient,
+			CNICIDR:                 r.DefaultCNICIDR, // we use default for now, but we might need a way how to get specify per cluster
+			Log:                     logger,
+			VPCAzList:               awsCluster.Spec.NetworkSpec.Subnets.GetUniqueZones(),
+			VPCID:                   awsCluster.Spec.NetworkSpec.VPC.ID,
 		}
 		cniService, err = cni.New(c)
 		if err != nil {

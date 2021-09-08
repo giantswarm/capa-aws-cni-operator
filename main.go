@@ -57,7 +57,7 @@ func main() {
 	var probeAddr string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.StringVar(&defaultCNICIDR, "default-cni-cidr", "",
+	flag.StringVar(&defaultCNICIDR, "default-cni-cidr", "100.64.0.0/16",
 		"Enable creation and management of KIAM role for kiam app.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+

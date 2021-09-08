@@ -3,8 +3,10 @@ package key
 import (
 	"context"
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/rest"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	capa "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -15,9 +17,11 @@ const (
 	ClusterRole             = "cluster.x-k8s.io/role"
 
 	FinalizerName = "capa-aws-cni-operator.finalizers.giantswarm.io"
+
+	AWSCniOperatorOwnedTag = "capa-aws-cni-operator/owned"
 )
 
-func GetClusterIDFromLabels(t v1.ObjectMeta) string {
+func GetClusterIDFromLabels(t metav1.ObjectMeta) string {
 	return t.GetLabels()[ClusterNameLabel]
 }
 
@@ -48,7 +52,41 @@ func HasCapiWatchLabel(labels map[string]string) bool {
 	return false
 }
 
+// GetWCK8sClient will return workload cluster k8s controller-runtime client
 func GetWCK8sClient(ctx context.Context, ctrlClient client.Client, clusterName string) (client.Client, error) {
+	awsCluster, err := GetAWSClusterByName(ctx, ctrlClient, clusterName)
+	if err != nil {
+		return nil, err
+	}
 
-	return nil, nil
+	apiEndpoint := fmt.Sprintf("%s:%d", awsCluster.Spec.ControlPlaneEndpoint.Host, awsCluster.Spec.ControlPlaneEndpoint.Port)
+
+	var secret corev1.Secret
+	{
+		err = ctrlClient.Get(ctx, client.ObjectKey{
+			Name:      fmt.Sprintf("%s-ca", GetClusterIDFromLabels(awsCluster.ObjectMeta)),
+			Namespace: awsCluster.Namespace,
+		},
+			&secret)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	conf := &rest.Config{
+		Host: apiEndpoint,
+		TLSClientConfig: rest.TLSClientConfig{
+			CAData:   secret.Data["tls.crt"],
+			CertData: secret.Data["tls.crt"],
+			KeyData:  secret.Data["tls.key"],
+		},
+	}
+
+	wcClient, err := client.New(conf, client.Options{})
+	if err != nil {
+		return nil, err
+	}
+
+	return wcClient, nil
 }
