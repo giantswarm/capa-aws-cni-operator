@@ -3,10 +3,10 @@ package key
 import (
 	"context"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/rest"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
 	capa "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -14,7 +14,6 @@ import (
 const (
 	ClusterNameLabel        = "cluster.x-k8s.io/cluster-name"
 	ClusterWatchFilterLabel = "cluster.x-k8s.io/watch-filter"
-	ClusterRole             = "cluster.x-k8s.io/role"
 
 	FinalizerName = "capa-aws-cni-operator.finalizers.giantswarm.io"
 
