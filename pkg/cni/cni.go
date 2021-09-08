@@ -118,6 +118,9 @@ func (c *CNIService) Reconcile() error {
 
 	// apply eni configs to WC k8s
 	err = c.applyENIConfigs(cniSubnets, securityGroupID)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -402,6 +405,9 @@ func (c *CNIService) deleteSubnets(ec2Client *ec2.EC2) error {
 
 		if len(o.Subnets) != 0 {
 			err := c.deleteSubnetNetworkInterfaces(ec2Client, *o.Subnets[0].SubnetId)
+			if err != nil {
+				return err
+			}
 
 			delInput := &ec2.DeleteSubnetInput{
 				SubnetId: o.Subnets[0].SubnetId,
