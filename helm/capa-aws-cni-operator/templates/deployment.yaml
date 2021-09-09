@@ -37,11 +37,11 @@ spec:
         - --leader-elect
         resources:
           requests:
-            cpu: 150m
-            memory: 150Mi
+            cpu: 170m
+            memory: 200Mi
           limits:
-            cpu: 150m
-            memory: 180Mi
+            cpu: 170m
+            memory: 220Mi
         volumeMounts:
         - mountPath: /home/.aws
           name: credentials
