@@ -156,6 +156,7 @@ func (c *CNIService) associateVPCCidrBlock(ec2Client *ec2.EC2) error {
 			c.log.Error(err, fmt.Sprintf("failed to associate VPC cidr block '%s'", c.cniCIDR))
 			return err
 		}
+		c.log.Info(fmt.Sprintf("associated new CNI CIDR block %s with vpc", c.cniCIDR))
 	}
 
 	return nil
@@ -232,6 +233,7 @@ func (c *CNIService) createSubnets(ec2Client *ec2.EC2) ([]CNISubnet, error) {
 				SubnetID: *o.Subnet.SubnetId,
 				AZ:       az,
 			})
+			c.log.Info(fmt.Sprintf("created cni subnet %s with id %s", subnetName(c.clusterName, az), *o.Subnet.SubnetId))
 		} else {
 			c.log.Error(err, fmt.Sprintf("failed to describe subnet %s", subnetName(c.clusterName, az)))
 			return nil, err
@@ -297,6 +299,8 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 			return "", err
 		}
 		securityGroupID = *o.GroupId
+		c.log.Info(fmt.Sprintf("created a new cni security group %s with id %s", securityGroupName(c.clusterName), securityGroupID))
+
 	} else {
 		c.log.Error(err, fmt.Sprintf("failed to fetch security group %s", securityGroupName(c.clusterName)))
 		return "", err
@@ -354,6 +358,7 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 			c.log.Error(err, "failed to create security group ingress rule")
 			return "", err
 		}
+		c.log.Info(fmt.Sprintf("created a new security group ingress rule too allow traffic from %#v security groups", c.clusterSecurityGroupIDs))
 	}
 
 	return securityGroupID, nil
