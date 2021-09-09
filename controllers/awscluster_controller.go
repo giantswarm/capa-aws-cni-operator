@@ -56,7 +56,9 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	err = r.Get(ctx, req.NamespacedName, awsCluster)
 	if k8serrors.IsNotFound(err) {
 		// CR is gone, stop reconciling
-		return ctrl.Result{}, nil
+		return ctrl.Result{
+			Requeue: false,
+		}, nil
 	} else if err != nil {
 		logger.Error(err, "failed fetching AWSCluster CR")
 		return ctrl.Result{}, err
@@ -155,13 +157,18 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 			logger.Error(err, "failed to fetch latest AWSCluster")
 			return ctrl.Result{}, err
 		}
-		// remove finalizer from AWSCluster
-		controllerutil.RemoveFinalizer(awsCluster, key.FinalizerName)
-		err = r.Update(ctx, awsCluster)
-		if err != nil {
-			logger.Error(err, "failed to remove finalizer on AWSCluster")
-			return ctrl.Result{}, err
+		if key.HasFinalizer(awsCluster.Finalizers) {
+			controllerutil.RemoveFinalizer(awsCluster, key.FinalizerName)
+			err = r.Update(ctx, awsCluster)
+			if err != nil {
+				logger.Error(err, "failed to remove finalizer on AWSCluster")
+				return ctrl.Result{}, err
+			}
 		}
+		// all resources were deleted, we dont have to reconcile anymore
+		return ctrl.Result{
+			Requeue: false,
+		}, nil
 	} else { // create CNI resource
 		wcClient, err := key.GetWCK8sClient(ctx, r.Client, clusterName)
 		if k8serrors.IsNotFound(err) {
@@ -180,12 +187,15 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		}
 
 		// add finalizer to AWSCluster
-		controllerutil.AddFinalizer(awsCluster, key.FinalizerName)
-		err = r.Update(ctx, awsCluster)
-		if err != nil {
-			logger.Error(err, "failed to add finalizer on AWSCluster")
-			return ctrl.Result{}, err
+		if !key.HasFinalizer(awsCluster.Finalizers) {
+			controllerutil.AddFinalizer(awsCluster, key.FinalizerName)
+			err = r.Update(ctx, awsCluster)
+			if err != nil {
+				logger.Error(err, "failed to add finalizer on AWSCluster")
+				return ctrl.Result{}, err
+			}
 		}
+
 		err = cniService.Reconcile()
 		if err != nil {
 			return ctrl.Result{}, err

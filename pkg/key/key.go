@@ -89,3 +89,12 @@ func GetWCK8sClient(ctx context.Context, ctrlClient client.Client, clusterName s
 
 	return wcClient, nil
 }
+
+func HasFinalizer(finalizers []string) bool {
+	for _, f := range finalizers {
+		if f == FinalizerName {
+			return true
+		}
+	}
+	return false
+}
