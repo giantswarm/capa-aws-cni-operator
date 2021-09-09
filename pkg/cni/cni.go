@@ -389,9 +389,15 @@ func (c *CNIService) applyENIConfigs(subnets []CNISubnet, securityGroupID string
 		}
 
 		err := c.ctrlClient.Create(ctx, eniConfig)
+		// check for 'EOF' error, that measn api is not up yet
 		if strings.Contains(err.Error(), "EOF") {
 			c.log.Info("WC k8s api is not read yet")
 			return errors.New("WC k8s api is not read yet")
+			// check for 'no kind' error which means aws-cni did not installed CRD yet
+		} else if strings.Contains(err.Error(), "no kind is registered") {
+			c.log.Info("aws-cni is not installed on the cluster yet")
+			return errors.New("aws-cni is not installed on the cluster yet")
+			// check for alreadyExist error, in that case resources will be updated
 		} else if k8serrors.IsAlreadyExists(err) {
 			var latest v1alpha1.ENIConfig
 
