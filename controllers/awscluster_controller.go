@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -165,11 +164,8 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		}
 	} else { // create CNI resource
 		wcClient, err := key.GetWCK8sClient(ctx, r.Client, clusterName)
-		// check for expected errors in early creating phase
-		// if error is 'NotFound' that means that k8s api secrets are not yet created
-		// if error contains EOF it means WC API is not yet up
-		if k8serrors.IsNotFound(err) || strings.Contains(err.Error(), "EOF") {
-			logger.Info("WC k8s api is not ready yet")
+		if k8serrors.IsNotFound(err) {
+			logger.Info("WC k8s api secrets are not ready yet")
 			return ctrl.Result{
 				Requeue:      true,
 				RequeueAfter: time.Minute * 2,

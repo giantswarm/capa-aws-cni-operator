@@ -87,13 +87,5 @@ func GetWCK8sClient(ctx context.Context, ctrlClient client.Client, clusterName s
 		return nil, err
 	}
 
-	// check if k8s api is already available
-	var ns corev1.Namespace
-	err = wcClient.Get(ctx, client.ObjectKey{Name: "default"}, &ns)
-	if err != nil {
-		// wc k8s api is not ready yet
-		return nil, err
-	}
-
 	return wcClient, nil
 }

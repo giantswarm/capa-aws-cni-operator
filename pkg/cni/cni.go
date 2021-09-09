@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/aws/amazon-vpc-cni-k8s/pkg/apis/crd/v1alpha1"
 	"github.com/aws/aws-sdk-go/aws"
@@ -388,7 +389,10 @@ func (c *CNIService) applyENIConfigs(subnets []CNISubnet, securityGroupID string
 		}
 
 		err := c.ctrlClient.Create(ctx, eniConfig)
-		if k8serrors.IsAlreadyExists(err) {
+		if strings.Contains(err.Error(), "EOF") {
+			c.log.Info("WC k8s api is not read yet")
+			return errors.New("WC k8s api is not read yet")
+		} else if k8serrors.IsAlreadyExists(err) {
 			var latest v1alpha1.ENIConfig
 
 			err := c.ctrlClient.Get(ctx, types.NamespacedName{Name: eniConfig.GetName(), Namespace: eniConfig.GetNamespace()}, &latest)
