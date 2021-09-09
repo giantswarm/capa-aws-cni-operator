@@ -183,7 +183,7 @@ func (c *CNIService) createSubnets(ec2Client *ec2.EC2) ([]CNISubnet, error) {
 				},
 				{
 					Name:   aws.String(fmt.Sprintf("tag:%s", key.AWSCniOperatorOwnedTag)),
-					Values: aws.StringSlice([]string{""}),
+					Values: aws.StringSlice([]string{"owned"}),
 				},
 				{
 					Name:   aws.String("vpc-id"),
@@ -214,7 +214,7 @@ func (c *CNIService) createSubnets(ec2Client *ec2.EC2) ([]CNISubnet, error) {
 							},
 							{
 								Key:   aws.String(key.AWSCniOperatorOwnedTag),
-								Value: aws.String(""),
+								Value: aws.String("owned"),
 							},
 						},
 					},
@@ -251,7 +251,7 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 			},
 			{
 				Name:   aws.String(fmt.Sprintf("tag:%s", key.AWSCniOperatorOwnedTag)),
-				Values: aws.StringSlice([]string{""}),
+				Values: aws.StringSlice([]string{"owned"}),
 			},
 			{
 				Name:   aws.String("vpc-id"),
@@ -274,7 +274,7 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 					Tags: []*ec2.Tag{
 						{
 							Key:   aws.String(key.AWSCniOperatorOwnedTag),
-							Value: aws.String(""),
+							Value: aws.String("owned"),
 						},
 					},
 				},
@@ -406,11 +406,30 @@ func (c *CNIService) Delete() error {
 
 // deleteSecurityGroup deletes aws cni security group
 func (c *CNIService) deleteSecurityGroup(ec2Client *ec2.EC2) error {
-	i := &ec2.DeleteSecurityGroupInput{
-		GroupName: aws.String(securityGroupName(c.clusterName)),
+	// first we check if the security group  exist and fetch its ID
+	inputDescribe := &ec2.DescribeSecurityGroupsInput{
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("tag:Name"),
+				Values: aws.StringSlice([]string{securityGroupName(c.clusterName)}),
+			},
+			{
+				Name:   aws.String(fmt.Sprintf("tag:%s", key.AWSCniOperatorOwnedTag)),
+				Values: aws.StringSlice([]string{"owned"}),
+			},
+			{
+				Name:   aws.String("vpc-id"),
+				Values: aws.StringSlice([]string{c.vpcID}),
+			},
+		},
+	}
+	o, err := ec2Client.DescribeSecurityGroups(inputDescribe)
+
+	inputDelete := &ec2.DeleteSecurityGroupInput{
+		GroupId: o.SecurityGroups[0].GroupId,
 	}
 
-	_, err := ec2Client.DeleteSecurityGroup(i)
+	_, err = ec2Client.DeleteSecurityGroup(inputDelete)
 	if IsNotFound(err) {
 		//security group is already deleted, ignoring error
 	} else if err != nil {
@@ -430,7 +449,7 @@ func (c *CNIService) deleteSubnets(ec2Client *ec2.EC2) error {
 				},
 				{
 					Name:   aws.String(fmt.Sprintf("tag:%s", key.AWSCniOperatorOwnedTag)),
-					Values: aws.StringSlice([]string{""}),
+					Values: aws.StringSlice([]string{"owned"}),
 				},
 			},
 		}
