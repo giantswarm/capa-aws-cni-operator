@@ -322,10 +322,9 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 		// create security group ingress rule to allow traffic from each security group that is in the cluster
 		for _, sg := range c.clusterSecurityGroupIDs {
 			i := &ec2.AuthorizeSecurityGroupIngressInput{
-				GroupId:    aws.String(securityGroupID),
-				FromPort:   aws.Int64(-1),
-				ToPort:     aws.Int64(-1),
-				IpProtocol: aws.String("-1"),
+				GroupId:  aws.String(securityGroupID),
+				FromPort: aws.Int64(-1),
+				ToPort:   aws.Int64(-1),
 				IpPermissions: []*ec2.IpPermission{
 					{
 						IpProtocol: aws.String("-1"),
