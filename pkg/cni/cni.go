@@ -305,8 +305,8 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 	i2 := &ec2.DescribeSecurityGroupRulesInput{
 		Filters: []*ec2.Filter{
 			{
-				Name:   aws.String("tag:cluster"),
-				Values: aws.StringSlice([]string{c.clusterName}),
+				Name:   aws.String("tag:Name"),
+				Values: aws.StringSlice([]string{securityGroupRuleName(c.clusterName)}),
 			},
 		},
 	}
@@ -318,44 +318,42 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 	}
 
 	// create rules only if they are missing
-	if len(o2.SecurityGroupRules) != len(c.clusterSecurityGroupIDs) {
+	if len(o2.SecurityGroupRules) > 0 {
+
+		var sgGroupPairs []*ec2.UserIdGroupPair
 		// create security group ingress rule to allow traffic from each security group that is in the cluster
 		for _, sg := range c.clusterSecurityGroupIDs {
-			i := &ec2.AuthorizeSecurityGroupIngressInput{
-				GroupId:  aws.String(securityGroupID),
-				FromPort: aws.Int64(-1),
-				ToPort:   aws.Int64(-1),
-				IpPermissions: []*ec2.IpPermission{
-					{
-						IpProtocol: aws.String("-1"),
-						FromPort:   aws.Int64(-1),
-						ToPort:     aws.Int64(-1),
-						UserIdGroupPairs: []*ec2.UserIdGroupPair{
-							{
-								GroupId: aws.String(sg),
-							},
+			sgGroupPairs = append(sgGroupPairs, &ec2.UserIdGroupPair{GroupId: aws.String(sg)})
+		}
+
+		i := &ec2.AuthorizeSecurityGroupIngressInput{
+			GroupId: aws.String(securityGroupID),
+			IpPermissions: []*ec2.IpPermission{
+				{
+					IpProtocol:       aws.String("-1"),
+					FromPort:         aws.Int64(-1),
+					ToPort:           aws.Int64(-1),
+					UserIdGroupPairs: sgGroupPairs,
+				},
+			},
+			TagSpecifications: []*ec2.TagSpecification{
+				{
+					Tags: []*ec2.Tag{
+						{
+							Key:   aws.String("Name"),
+							Value: aws.String(securityGroupRuleName(c.clusterName)),
 						},
 					},
+					ResourceType: aws.String("security-group-rule"),
 				},
-				TagSpecifications: []*ec2.TagSpecification{
-					{
-						Tags: []*ec2.Tag{
-							{
-								Key:   aws.String("cluster"),
-								Value: aws.String(c.clusterName),
-							},
-						},
-						ResourceType: aws.String("security-group-rule"),
-					},
-				},
-			}
-			_, err := ec2Client.AuthorizeSecurityGroupIngress(i)
-			if IsAlreadyExists(err) {
-				c.log.Info(fmt.Sprintf("security group ingress rule already exists for %s", sg))
-			} else if err != nil {
-				c.log.Error(err, fmt.Sprintf("failed to create security group ingresss rule for sg %s", sg))
-				return "", err
-			}
+			},
+		}
+		_, err := ec2Client.AuthorizeSecurityGroupIngress(i)
+		if IsAlreadyExists(err) {
+			c.log.Info("security group ingress rule already exists")
+		} else if err != nil {
+			c.log.Error(err, "failed to create security group ingress rule")
+			return "", err
 		}
 	}
 
@@ -542,6 +540,9 @@ func (c *CNIService) deleteSubnetNetworkInterfaces(ec2Client *ec2.EC2, subnetID 
 
 func securityGroupName(clusterName string) string {
 	return fmt.Sprintf("%s-aws-cni", clusterName)
+}
+func securityGroupRuleName(clusterName string) string {
+	return fmt.Sprintf("%s-aws-cni-sg-rule", clusterName)
 }
 func subnetName(clusterName string, azName string) string {
 	return fmt.Sprintf("%s-subnet-cni-%s", clusterName, azName)
