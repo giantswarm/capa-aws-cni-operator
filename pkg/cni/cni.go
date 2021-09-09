@@ -358,7 +358,9 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 			c.log.Error(err, "failed to create security group ingress rule")
 			return "", err
 		}
-		c.log.Info(fmt.Sprintf("created a new security group ingress rule too allow traffic from %#v security groups", c.clusterSecurityGroupIDs))
+		c.log.Info(fmt.Sprintf("created a new security group ingress rule to allow traffic from %s security groups", c.clusterSecurityGroupIDs))
+	} else {
+		c.log.Info("security group ingress rules to allow traffic cni traffic already exists")
 	}
 
 	return securityGroupID, nil
