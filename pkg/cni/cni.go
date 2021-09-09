@@ -455,16 +455,19 @@ func (c *CNIService) deleteSecurityGroup(ec2Client *ec2.EC2) error {
 		return err
 	}
 
-	inputDelete := &ec2.DeleteSecurityGroupInput{
-		GroupId: o.SecurityGroups[0].GroupId,
+	if len(o.SecurityGroups) > 0 {
+		inputDelete := &ec2.DeleteSecurityGroupInput{
+			GroupId: o.SecurityGroups[0].GroupId,
+		}
+
+		_, err = ec2Client.DeleteSecurityGroup(inputDelete)
+		if IsNotFound(err) {
+			//security group is already deleted, ignoring error
+		} else if err != nil {
+			c.log.Error(err, fmt.Sprintf("failed to delete security group %s", securityGroupName(c.clusterName)))
+		}
 	}
 
-	_, err = ec2Client.DeleteSecurityGroup(inputDelete)
-	if IsNotFound(err) {
-		//security group is already deleted, ignoring error
-	} else if err != nil {
-		c.log.Error(err, fmt.Sprintf("failed to delete security group %s", securityGroupName(c.clusterName)))
-	}
 	return nil
 }
 
