@@ -23,3 +23,12 @@ func IsAlreadyExists(err error) bool {
 	}
 	return false
 }
+
+func DuplicateSecurityGroup(err error) bool {
+	if aerr, ok := err.(awserr.Error); ok {
+		if strings.Contains(aerr.Message(), "Duplicate") {
+			return true
+		}
+	}
+	return false
+}

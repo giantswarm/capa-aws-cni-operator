@@ -280,6 +280,10 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 							Key:   aws.String(key.AWSCniOperatorOwnedTag),
 							Value: aws.String("owned"),
 						},
+						{
+							Key:   aws.String("Name"),
+							Value: aws.String(securityGroupName(c.clusterName)),
+						},
 					},
 					ResourceType: aws.String("security-group"),
 				},
@@ -299,7 +303,12 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 	}
 
 	i2 := &ec2.DescribeSecurityGroupRulesInput{
-		SecurityGroupRuleIds: aws.StringSlice([]string{securityGroupID}),
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("tag:cluster"),
+				Values: aws.StringSlice([]string{c.clusterName}),
+			},
+		},
 	}
 
 	o2, err := ec2Client.DescribeSecurityGroupRules(i2)
@@ -327,6 +336,17 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 								GroupId: aws.String(sg),
 							},
 						},
+					},
+				},
+				TagSpecifications: []*ec2.TagSpecification{
+					{
+						Tags: []*ec2.Tag{
+							{
+								Key:   aws.String("cluster"),
+								Value: aws.String(c.clusterName),
+							},
+						},
+						ResourceType: aws.String("security-group-rule"),
 					},
 				},
 			}
