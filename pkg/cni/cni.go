@@ -199,6 +199,8 @@ func (c *CNIService) createSubnets(ec2Client *ec2.EC2) ([]CNISubnet, error) {
 				SubnetID: *o.Subnets[0].SubnetId,
 				AZ:       az,
 			})
+			c.log.Info(fmt.Sprintf("cni subnet %s already created with id %s", subnetName(c.clusterName, az), *o.Subnets[0].SubnetId))
+
 		} else if err == nil {
 			// create subnet
 			createInput := &ec2.CreateSubnetInput{
@@ -265,6 +267,7 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 	if err == nil && len(o.SecurityGroups) == 1 {
 		// group already exists just save the ID
 		securityGroupID = *o.SecurityGroups[0].GroupId
+		c.log.Info(fmt.Sprintf("cni security group %s already created with id %s", securityGroupName(c.clusterName), securityGroupID))
 	} else if err == nil {
 		// security group does not exist, create a new one
 		i := &ec2.CreateSecurityGroupInput{
@@ -281,6 +284,7 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 					ResourceType: aws.String("security-group"),
 				},
 			},
+			Description: aws.String(fmt.Sprintf("aws cni security group for cluster %s", c.clusterName)),
 		}
 
 		o, err := ec2Client.CreateSecurityGroup(i)
@@ -385,6 +389,7 @@ func (c *CNIService) applyENIConfigs(subnets []CNISubnet, securityGroupID string
 			c.log.Error(err, "failed to create eni configs")
 			return err
 		}
+		c.log.Info("applied ENIConfigs for aws cni")
 
 	}
 	return nil
