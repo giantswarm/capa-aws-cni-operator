@@ -46,6 +46,14 @@ rules:
     - events
   verbs:
     - create
+- apiGroups:
+    - ""
+  resources:
+    - secrets
+  verbs:
+    - list
+    - get
+    - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
