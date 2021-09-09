@@ -424,6 +424,10 @@ func (c *CNIService) deleteSecurityGroup(ec2Client *ec2.EC2) error {
 		},
 	}
 	o, err := ec2Client.DescribeSecurityGroups(inputDescribe)
+	if err != nil {
+		c.log.Error(err, "failed to describe security group for deletion")
+		return err
+	}
 
 	inputDelete := &ec2.DeleteSecurityGroupInput{
 		GroupId: o.SecurityGroups[0].GroupId,
