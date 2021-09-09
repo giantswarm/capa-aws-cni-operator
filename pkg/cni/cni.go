@@ -175,7 +175,7 @@ func (c *CNIService) createSubnets(ec2Client *ec2.EC2) ([]CNISubnet, error) {
 				SubnetID: *o.Subnets[0].SubnetId,
 				AZ:       az,
 			})
-		} else if err != nil {
+		} else if err == nil {
 			// create subnet
 			createInput := &ec2.CreateSubnetInput{
 				VpcId:            aws.String(c.vpcID),
@@ -220,7 +220,16 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 
 	// first we check if the security group already exist
 	i := &ec2.DescribeSecurityGroupsInput{
-		GroupNames: aws.StringSlice([]string{securityGroupName(c.clusterName)}),
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("tag:Name"),
+				Values: aws.StringSlice([]string{securityGroupName(c.clusterName)}),
+			},
+			{
+				Name:   aws.String(fmt.Sprintf("tag:%s", key.AWSCniOperatorOwnedTag)),
+				Values: aws.StringSlice([]string{""}),
+			},
+		},
 	}
 	o, err := ec2Client.DescribeSecurityGroups(i)
 
