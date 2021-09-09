@@ -142,6 +142,8 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		}
 	}
 
+	logger.Info("reconciling CR")
+
 	if awsCluster.DeletionTimestamp != nil {
 		err = cniService.Delete()
 		if err != nil {

@@ -127,17 +127,37 @@ func (c *CNIService) Reconcile() error {
 
 // associateVPCCidrBlock will add CNI subnet to the cluster VPC
 func (c *CNIService) associateVPCCidrBlock(ec2Client *ec2.EC2) error {
-	i := &ec2.AssociateVpcCidrBlockInput{
-		VpcId:     aws.String(c.vpcID),
-		CidrBlock: aws.String(c.cniCIDR),
-	}
-	_, err := ec2Client.AssociateVpcCidrBlock(i)
-	if IsAlreadyExists(err) {
-		// pass
-	} else if err != nil {
-		c.log.Error(err, fmt.Sprintf("failed to associate VPC cidr block '%s'", c.cniCIDR))
+	inputDescribe := &ec2.DescribeVpcsInput{VpcIds: aws.StringSlice([]string{c.vpcID})}
+
+	o, err := ec2Client.DescribeVpcs(inputDescribe)
+	if err != nil {
+		c.log.Error(err, "failed to describe VPC")
 		return err
 	}
+	alreadyAssociated := false
+
+	// check if the cidr is already associated
+	for _, a := range o.Vpcs[0].CidrBlockAssociationSet {
+		if *a.CidrBlock == c.cniCIDR {
+			alreadyAssociated = true
+			break
+		}
+	}
+
+	if alreadyAssociated {
+		c.log.Info(fmt.Sprintf("CNI CIDR block %s is already associated with vpc", c.cniCIDR))
+	} else {
+		i := &ec2.AssociateVpcCidrBlockInput{
+			VpcId:     aws.String(c.vpcID),
+			CidrBlock: aws.String(c.cniCIDR),
+		}
+		_, err := ec2Client.AssociateVpcCidrBlock(i)
+		if err != nil {
+			c.log.Error(err, fmt.Sprintf("failed to associate VPC cidr block '%s'", c.cniCIDR))
+			return err
+		}
+	}
+
 	return nil
 }
 
