@@ -318,8 +318,7 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 	}
 
 	// create rules only if they are missing
-	if len(o2.SecurityGroupRules) > 0 {
-
+	if len(o2.SecurityGroupRules) == 0 {
 		var sgGroupPairs []*ec2.UserIdGroupPair
 		// create security group ingress rule to allow traffic from each security group that is in the cluster
 		for _, sg := range c.clusterSecurityGroupIDs {
