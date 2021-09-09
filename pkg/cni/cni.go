@@ -165,6 +165,10 @@ func (c *CNIService) createSubnets(ec2Client *ec2.EC2) ([]CNISubnet, error) {
 					Name:   aws.String(fmt.Sprintf("tag:%s", key.AWSCniOperatorOwnedTag)),
 					Values: aws.StringSlice([]string{""}),
 				},
+				{
+					Name:   aws.String("vpc-id"),
+					Values: aws.StringSlice([]string{c.vpcID}),
+				},
 			},
 		}
 		o, err := ec2Client.DescribeSubnets(describeInput)
@@ -228,6 +232,10 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 			{
 				Name:   aws.String(fmt.Sprintf("tag:%s", key.AWSCniOperatorOwnedTag)),
 				Values: aws.StringSlice([]string{""}),
+			},
+			{
+				Name:   aws.String("vpc-id"),
+				Values: aws.StringSlice([]string{c.vpcID}),
 			},
 		},
 	}
