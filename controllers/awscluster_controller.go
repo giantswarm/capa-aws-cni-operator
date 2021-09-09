@@ -19,9 +19,11 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	capa "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -52,10 +54,15 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	logger := r.Log.WithValues("namespace", req.Namespace, "awsCluster", req.Name)
 
 	awsCluster := &capa.AWSCluster{}
-	if err := r.Get(ctx, req.NamespacedName, awsCluster); err != nil {
-		logger.Error(err, "AWSCluster does not exist")
+	err = r.Get(ctx, req.NamespacedName, awsCluster)
+	if k8serrors.IsNotFound(err) {
+		// CR is gone, stop reconciling
+		return ctrl.Result{}, nil
+	} else if err != nil {
+		logger.Error(err, "failed fetching AWSCluster CR")
 		return ctrl.Result{}, err
 	}
+
 	// check if CR got CAPI watch-filter label
 	if !key.HasCapiWatchLabel(awsCluster.Labels) {
 		logger.Info(fmt.Sprintf("AWSCluster do not have %s=%s label, ignoring CR", key.ClusterWatchFilterLabel, "capi"))
@@ -144,6 +151,11 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 			return ctrl.Result{}, err
 		}
 
+		err = r.Get(ctx, req.NamespacedName, awsCluster)
+		if err != nil {
+			logger.Error(err, "failed to fetch latest AWSCluster")
+			return ctrl.Result{}, err
+		}
 		// remove finalizer from AWSCluster
 		controllerutil.RemoveFinalizer(awsCluster, key.FinalizerName)
 		err = r.Update(ctx, awsCluster)
@@ -151,10 +163,18 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 			logger.Error(err, "failed to remove finalizer on AWSCluster")
 			return ctrl.Result{}, err
 		}
-	} else {
-		// create CNI resource
+	} else { // create CNI resource
 		wcClient, err := key.GetWCK8sClient(ctx, r.Client, clusterName)
-		if err != nil {
+		// check for expected errors in early creating phase
+		// if error is 'NotFound' that means that k8s api secrets are not yet created
+		// if error contains EOF it means WC API is not yet up
+		if k8serrors.IsNotFound(err) || strings.Contains(err.Error(), "EOF") {
+			logger.Info("WC k8s api is not ready yet")
+			return ctrl.Result{
+				Requeue:      true,
+				RequeueAfter: time.Minute * 2,
+			}, nil
+		} else if err != nil {
 			return ctrl.Result{}, err
 		}
 		config.CtrlClient = wcClient

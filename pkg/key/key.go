@@ -3,7 +3,6 @@ package key
 import (
 	"context"
 	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -84,6 +83,14 @@ func GetWCK8sClient(ctx context.Context, ctrlClient client.Client, clusterName s
 
 	wcClient, err := client.New(conf, client.Options{})
 	if err != nil {
+		return nil, err
+	}
+
+	// check if k8s api is already available
+	var nsList corev1.NamespaceList
+	err = wcClient.List(ctx, &nsList)
+	if err != nil {
+		// wc k8s api si not ready yet
 		return nil, err
 	}
 
