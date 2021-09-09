@@ -91,11 +91,6 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		}, nil
 	}
 
-	wcClient, err := key.GetWCK8sClient(ctx, r.Client, clusterName)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	var awsClientGetter *awsclient.AwsClient
 	{
 		c := awsclient.AWSClientConfig{
@@ -125,26 +120,25 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	}
 
 	var cniService *cni.CNIService
-	{
-		c := cni.CNIConfig{
-			AWSSession:              awsClientSession,
-			ClusterName:             clusterName,
-			ClusterSecurityGroupIDs: clusterSecurityGroupIDs,
-			CtrlClient:              wcClient,
-			CNICIDR:                 r.DefaultCNICIDR, // we use default for now, but we might need a way how to get specify per cluster
-			Log:                     logger,
-			VPCAzList:               awsCluster.Spec.NetworkSpec.Subnets.GetUniqueZones(),
-			VPCID:                   awsCluster.Spec.NetworkSpec.VPC.ID,
-		}
-		cniService, err = cni.New(c)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	// config for the CNI service
+	config := cni.CNIConfig{
+		AWSSession:              awsClientSession,
+		ClusterName:             clusterName,
+		ClusterSecurityGroupIDs: clusterSecurityGroupIDs,
+		CtrlClient:              nil,              // we only need wc k8s client for resource creation, we dont need it for deletion, when cluster is being deleted it might not be avaiable
+		CNICIDR:                 r.DefaultCNICIDR, // we use default for now, but we might need a way how to get specify per cluster
+		Log:                     logger,
+		VPCAzList:               awsCluster.Spec.NetworkSpec.Subnets.GetUniqueZones(),
+		VPCID:                   awsCluster.Spec.NetworkSpec.VPC.ID,
 	}
 
 	logger.Info("reconciling CR")
-
+	// delete CNI resource
 	if awsCluster.DeletionTimestamp != nil {
+		cniService, err = cni.New(config)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 		err = cniService.Delete()
 		if err != nil {
 			return ctrl.Result{}, err
@@ -158,6 +152,17 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 			return ctrl.Result{}, err
 		}
 	} else {
+		// create CNI resource
+		wcClient, err := key.GetWCK8sClient(ctx, r.Client, clusterName)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		config.CtrlClient = wcClient
+		cniService, err = cni.New(config)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
 		// add finalizer to AWSCluster
 		controllerutil.AddFinalizer(awsCluster, key.FinalizerName)
 		err = r.Update(ctx, awsCluster)

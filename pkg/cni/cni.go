@@ -61,10 +61,6 @@ func New(c CNIConfig) (*CNIService, error) {
 		return nil, errors.New("failed to generate new cni service from empty ClusterSecurityGroupIDs")
 	}
 
-	if c.CtrlClient == nil {
-		return nil, errors.New("failed to generate new cni service from nil CtrlClient")
-	}
-
 	_, _, err := net.ParseCIDR(c.CNICIDR)
 	if err != nil {
 		return nil, err
