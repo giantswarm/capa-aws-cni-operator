@@ -217,6 +217,7 @@ func (c *CNIService) createSubnets(ec2Client *ec2.EC2) ([]CNISubnet, error) {
 								Value: aws.String("owned"),
 							},
 						},
+						ResourceType: aws.String("subnet"),
 					},
 				},
 			}
@@ -277,6 +278,7 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 							Value: aws.String("owned"),
 						},
 					},
+					ResourceType: aws.String("security-group"),
 				},
 			},
 		}
