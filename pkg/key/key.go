@@ -77,7 +77,7 @@ func GetWCK8sClient(ctx context.Context, ctrlClient client.Client, clusterName s
 				return nil, err
 			}
 		}
-		err = ioutil.WriteFile(tempKubeconfigFileName(clusterName), secret.Data["value"], 0644)
+		err = ioutil.WriteFile(tempKubeconfigFileName(clusterName), secret.Data["value"], 0600)
 		if err != nil {
 			return nil, err
 		}
