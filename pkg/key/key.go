@@ -3,7 +3,9 @@ package key
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime"
 
+	eni "github.com/aws/amazon-vpc-cni-k8s/pkg/apis/crd/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -82,7 +84,10 @@ func GetWCK8sClient(ctx context.Context, ctrlClient client.Client, clusterName s
 		},
 	}
 
-	wcClient, err := client.New(conf, client.Options{})
+	scheme := runtime.NewScheme()
+	_ = eni.AddToScheme(scheme)
+
+	wcClient, err := client.New(conf, client.Options{Scheme: scheme})
 	if err != nil {
 		return nil, err
 	}
