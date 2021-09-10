@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"k8s.io/client-go/tools/clientcmd"
+	"os"
 
 	eni "github.com/aws/amazon-vpc-cni-k8s/pkg/apis/crd/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/clientcmd"
 	capa "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -55,22 +56,32 @@ func HasCapiWatchLabel(labels map[string]string) bool {
 }
 
 // GetWCK8sClient will return workload cluster k8s controller-runtime client
+// this is bad but I cannot find easier way how to create a wc k8s client
 func GetWCK8sClient(ctx context.Context, ctrlClient client.Client, clusterName string, clusterNamespace string) (client.Client, error) {
 	var err error
-	var secret corev1.Secret
-	{
-		err = ctrlClient.Get(ctx, client.ObjectKey{
-			Name:      fmt.Sprintf("%s-kubeconfig", clusterName),
-			Namespace: clusterNamespace,
-		},
-			&secret)
 
+	if _, err := os.Stat(tempKubeconfigFileName(clusterName)); err == nil {
+		// kubeconfig file already exists, no need to fetch and write again
+
+	} else if os.IsNotExist(err) {
+		// kubeconfig dont exists we need to fetch it and write to file
+		var secret corev1.Secret
+		{
+			err = ctrlClient.Get(ctx, client.ObjectKey{
+				Name:      fmt.Sprintf("%s-kubeconfig", clusterName),
+				Namespace: clusterNamespace,
+			},
+				&secret)
+
+			if err != nil {
+				return nil, err
+			}
+		}
+		err = ioutil.WriteFile(tempKubeconfigFileName(clusterName), secret.Data["value"], 0644)
 		if err != nil {
 			return nil, err
 		}
-	}
-	err = ioutil.WriteFile(tempKubeconfigFileName(clusterName), secret.Data["value"], 0644)
-	if err != nil {
+	} else {
 		return nil, err
 	}
 
