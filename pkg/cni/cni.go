@@ -390,8 +390,8 @@ func (c *CNIService) applyENIConfigs(subnets []CNISubnet, securityGroupID string
 		}
 
 		err := c.ctrlClient.Create(ctx, eniConfig)
-		// check for 'EOF' error, that mean api is not up yet
-		if IsEOFError(err) {
+		// check if wc k8s api is up yet
+		if IsApiNotReadyYet(err) {
 			c.log.Info("WC k8s api is not read yet")
 			return errors.New("WC k8s api is not read yet")
 		} else if k8serrors.IsAlreadyExists(err) {
@@ -537,12 +537,15 @@ func (c *CNIService) deleteSubnetNetworkInterfaces(ec2Client *ec2.EC2, subnetID 
 
 	//detach ENIs
 	for _, eni := range o.NetworkInterfaces {
-		detachInput := &ec2.DetachNetworkInterfaceInput{
-			Force:        aws.Bool(true),
-			AttachmentId: eni.Attachment.AttachmentId,
+		if eni.Attachment != nil {
+			detachInput := &ec2.DetachNetworkInterfaceInput{
+				Force:        aws.Bool(true),
+				AttachmentId: eni.Attachment.AttachmentId,
+			}
+			// we ignore errors on detach in case the ENI was already detached or is detaching
+			_, _ = ec2Client.DetachNetworkInterface(detachInput)
 		}
-		// we ignore errors on detach in case the ENI was already detached
-		_, _ = ec2Client.DetachNetworkInterface(detachInput)
+
 	}
 
 	//delete ENIs

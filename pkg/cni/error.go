@@ -24,8 +24,8 @@ func IsAlreadyExists(err error) bool {
 	return false
 }
 
-func IsEOFError(err error) bool {
-	if err != nil && strings.Contains(err.Error(), "EOF") {
+func IsApiNotReadyYet(err error) bool {
+	if err != nil && (strings.Contains(err.Error(), "EOF") || strings.Contains(err.Error(), "no such host")) {
 		return true
 	}
 	return false
