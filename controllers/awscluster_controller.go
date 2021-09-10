@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -198,7 +197,7 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		}
 
 		err = cniService.Reconcile()
-		if strings.Contains(err.Error(), "aws-cni") {
+		if IsAWSCNINotFoundError(err) {
 			return ctrl.Result{
 				Requeue:      true,
 				RequeueAfter: time.Minute * 2,

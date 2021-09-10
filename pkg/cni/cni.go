@@ -405,16 +405,16 @@ func (c *CNIService) applyENIConfigs(subnets []CNISubnet, securityGroupID string
 
 			err = c.ctrlClient.Update(ctx, eniConfig)
 			if err != nil {
-				c.log.Error(err, "failed to update eni configs")
+				c.log.Error(err, "failed to update eni config")
 				return err
 			}
 		} else if err != nil {
-			c.log.Error(err, "failed to create eni configs")
+			c.log.Error(err, "failed to create eni config")
 			return err
 		}
-		c.log.Info("applied ENIConfigs for aws cni")
-
 	}
+	c.log.Info("applied ENIConfigs for aws cni")
+
 	return nil
 }
 
