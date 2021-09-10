@@ -24,11 +24,9 @@ func IsAlreadyExists(err error) bool {
 	return false
 }
 
-func DuplicateSecurityGroup(err error) bool {
-	if aerr, ok := err.(awserr.Error); ok {
-		if strings.Contains(aerr.Message(), "Duplicate") {
-			return true
-		}
+func IsEOFError(err error) bool {
+	if err != nil && strings.Contains(err.Error(), "EOF") {
+		return true
 	}
 	return false
 }

@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
-	"strings"
-
 	"github.com/aws/amazon-vpc-cni-k8s/pkg/apis/crd/v1alpha1"
 	"github.com/aws/aws-sdk-go/aws"
 	awsclient "github.com/aws/aws-sdk-go/aws/client"
@@ -17,6 +14,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/giantswarm/capa-aws-cni-operator/pkg/key"
@@ -389,15 +387,10 @@ func (c *CNIService) applyENIConfigs(subnets []CNISubnet, securityGroupID string
 		}
 
 		err := c.ctrlClient.Create(ctx, eniConfig)
-		// check for 'EOF' error, that measn api is not up yet
-		if strings.Contains(err.Error(), "EOF") {
+		// check for 'EOF' error, that mean api is not up yet
+		if IsEOFError(err) {
 			c.log.Info("WC k8s api is not read yet")
 			return errors.New("WC k8s api is not read yet")
-			// check for 'no kind' error which means aws-cni did not installed CRD yet
-		} else if strings.Contains(err.Error(), "no kind is registered") {
-			c.log.Error(err, "aws-cni is not installed on the cluster yet")
-			return errors.New("aws-cni is not installed on the cluster yet")
-			// check for alreadyExist error, in that case resources will be updated
 		} else if k8serrors.IsAlreadyExists(err) {
 			var latest v1alpha1.ENIConfig
 
