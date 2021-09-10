@@ -171,7 +171,7 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 			Requeue: false,
 		}, nil
 	} else { // create CNI resource
-		wcClient, err := key.GetWCK8sClient(ctx, r.Client, clusterName)
+		wcClient, err := key.GetWCK8sClient(ctx, r.Client, clusterName, awsCluster.Namespace)
 		if k8serrors.IsNotFound(err) {
 			logger.Info("WC k8s api secrets are not ready yet")
 			return ctrl.Result{
