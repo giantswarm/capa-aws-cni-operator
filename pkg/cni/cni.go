@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+
 	"github.com/aws/amazon-vpc-cni-k8s/pkg/apis/crd/v1alpha1"
 	"github.com/aws/aws-sdk-go/aws"
 	awsclient "github.com/aws/aws-sdk-go/aws/client"
@@ -14,7 +16,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/giantswarm/capa-aws-cni-operator/pkg/key"
