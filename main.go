@@ -22,11 +22,11 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	"k8s.io/klog/klogr"
-
+	eni "github.com/aws/amazon-vpc-cni-k8s/pkg/apis/crd/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/klog/klogr"
 	capa "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	capi "sigs.k8s.io/cluster-api/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -47,6 +47,7 @@ func init() {
 
 	_ = capi.AddToScheme(scheme)
 	_ = capa.AddToScheme(scheme)
+	_ = eni.AddToScheme(scheme)
 	//+kubebuilder:scaffold:scheme
 }
 
