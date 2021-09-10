@@ -383,7 +383,7 @@ func (c *CNIService) applyENIConfigs(subnets []CNISubnet, securityGroupID string
 				SecurityGroups: []string{
 					securityGroupID,
 				},
-				Subnet: s.AZ,
+				Subnet: s.SubnetID,
 			},
 		}
 
