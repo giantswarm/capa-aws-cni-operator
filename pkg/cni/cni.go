@@ -324,6 +324,8 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 		for _, sg := range c.clusterSecurityGroupIDs {
 			sgGroupPairs = append(sgGroupPairs, &ec2.UserIdGroupPair{GroupId: aws.String(sg)})
 		}
+		// also add aws-cni sg itself, so traffic can go across pods from different nodes
+		sgGroupPairs = append(sgGroupPairs, &ec2.UserIdGroupPair{GroupId: aws.String(securityGroupID)})
 
 		i := &ec2.AuthorizeSecurityGroupIngressInput{
 			GroupId: aws.String(securityGroupID),
@@ -532,6 +534,18 @@ func (c *CNIService) deleteSubnetNetworkInterfaces(ec2Client *ec2.EC2, subnetID 
 		c.log.Error(err, "failed to describe network interfaces")
 		return err
 	}
+
+	//detach ENIs
+	for _, eni := range o.NetworkInterfaces {
+		detachInput := &ec2.DetachNetworkInterfaceInput{
+			Force:        aws.Bool(true),
+			AttachmentId: eni.Attachment.AttachmentId,
+		}
+		// we ignore errors on detach in case the ENI was already detached
+		_, _ = ec2Client.DetachNetworkInterface(detachInput)
+	}
+
+	//delete ENIs
 	for _, eni := range o.NetworkInterfaces {
 		delInput := &ec2.DeleteNetworkInterfaceInput{
 			NetworkInterfaceId: eni.NetworkInterfaceId,
