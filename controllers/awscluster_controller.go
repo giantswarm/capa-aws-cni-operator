@@ -195,7 +195,6 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 				return ctrl.Result{}, err
 			}
 		}
-		awsCluster.Spec.NetworkSpec.CNI.CNIIngressRules
 		err = cniService.Reconcile()
 		if IsAWSCNINotFoundError(err) {
 			return ctrl.Result{
