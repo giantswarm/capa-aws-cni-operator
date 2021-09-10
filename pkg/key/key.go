@@ -3,12 +3,13 @@ package key
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"k8s.io/client-go/tools/clientcmd"
 
 	eni "github.com/aws/amazon-vpc-cni-k8s/pkg/apis/crd/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
 	capa "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -54,19 +55,13 @@ func HasCapiWatchLabel(labels map[string]string) bool {
 }
 
 // GetWCK8sClient will return workload cluster k8s controller-runtime client
-func GetWCK8sClient(ctx context.Context, ctrlClient client.Client, clusterName string) (client.Client, error) {
-	awsCluster, err := GetAWSClusterByName(ctx, ctrlClient, clusterName)
-	if err != nil {
-		return nil, err
-	}
-
-	apiEndpoint := fmt.Sprintf("%s:%d", awsCluster.Spec.ControlPlaneEndpoint.Host, awsCluster.Spec.ControlPlaneEndpoint.Port)
-
+func GetWCK8sClient(ctx context.Context, ctrlClient client.Client, clusterName string, clusterNamespace string) (client.Client, error) {
+	var err error
 	var secret corev1.Secret
 	{
 		err = ctrlClient.Get(ctx, client.ObjectKey{
-			Name:      fmt.Sprintf("%s-ca", GetClusterIDFromLabels(awsCluster.ObjectMeta)),
-			Namespace: awsCluster.Namespace,
+			Name:      fmt.Sprintf("%s-kubeconfig", clusterName),
+			Namespace: clusterNamespace,
 		},
 			&secret)
 
@@ -74,20 +69,20 @@ func GetWCK8sClient(ctx context.Context, ctrlClient client.Client, clusterName s
 			return nil, err
 		}
 	}
+	err = ioutil.WriteFile(tempKubeconfigFileName(clusterName), secret.Data["value"], 0644)
+	if err != nil {
+		return nil, err
+	}
 
-	conf := &rest.Config{
-		Host: apiEndpoint,
-		TLSClientConfig: rest.TLSClientConfig{
-			CAData:   secret.Data["tls.crt"],
-			CertData: secret.Data["tls.crt"],
-			KeyData:  secret.Data["tls.key"],
-		},
+	config, err := clientcmd.BuildConfigFromFlags("", tempKubeconfigFileName(clusterName))
+	if err != nil {
+		return nil, err
 	}
 
 	scheme := runtime.NewScheme()
 	_ = eni.AddToScheme(scheme)
 
-	wcClient, err := client.New(conf, client.Options{Scheme: scheme})
+	wcClient, err := client.New(config, client.Options{Scheme: scheme})
 	if err != nil {
 		return nil, err
 	}
@@ -102,4 +97,8 @@ func HasFinalizer(finalizers []string) bool {
 		}
 	}
 	return false
+}
+
+func tempKubeconfigFileName(clusterName string) string {
+	return fmt.Sprintf("/tmp/kubeconfig-%s", clusterName)
 }
