@@ -91,7 +91,7 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		}, nil
 	}
 
-	if _, ok := awsCluster.Status.Network.SecurityGroups[key.CNINodeSecurityGroupName]; ok {
+	if _, ok := awsCluster.Status.Network.SecurityGroups[key.CNINodeSecurityGroupName]; !ok {
 		logger.Info("AWSCluster do not have security group ready yet")
 		return ctrl.Result{
 			Requeue:      true,
