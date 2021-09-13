@@ -58,7 +58,6 @@ func HasCapiWatchLabel(labels map[string]string) bool {
 }
 
 // GetWCK8sClient will return workload cluster k8s controller-runtime client
-// this is bad but I cannot find easier way how to create a wc k8s client
 func GetWCK8sClient(ctx context.Context, ctrlClient client.Client, clusterName string, clusterNamespace string) (client.Client, error) {
 	var err error
 
