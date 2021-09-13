@@ -107,13 +107,13 @@ func (c *CNIService) Reconcile() error {
 	}
 
 	// create cni security group
-	securityGroupID, err := c.createSecurityGroup(ec2Client)
-	if err != nil {
-		return err
-	}
+	//securityGroupID, err := c.createSecurityGroup(ec2Client)
+	//if err != nil {
+	//	return err
+	//}
 
 	// apply eni configs to WC k8s
-	err = c.applyENIConfigs(cniSubnets, securityGroupID)
+	err = c.applyENIConfigs(cniSubnets, c.clusterSecurityGroupIDs[0])
 	if err != nil {
 		return err
 	}

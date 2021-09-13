@@ -121,8 +121,10 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 
 	var clusterSecurityGroupIDs []string
 	{
-		for _, sg := range awsCluster.Status.Network.SecurityGroups {
-			clusterSecurityGroupIDs = append(clusterSecurityGroupIDs, sg.ID)
+		for k, sg := range awsCluster.Status.Network.SecurityGroups {
+			if k == "node" {
+				clusterSecurityGroupIDs = append(clusterSecurityGroupIDs, sg.ID)
+			}
 		}
 
 	}
