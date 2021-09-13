@@ -1,6 +1,9 @@
-apiVersion: "v1"
+name: capa-aws-cni-operator
+version: [[ .Version ]]
+description: "Operator for managing AWS resources for AWS CNI for CAPA clusters"
 appVersion: "[[ .AppVersion ]]"
-description: "Chart holding capa-aws-cni-operator."
 home: "https://github.com/giantswarm/capa-aws-cni-operator"
-name: "capa-aws-cni-operator"
-version: "[[ .Version ]]"
+apiVersion: v1
+annotations:
+  application.giantswarm.io/team: "firecracker"
+  config.giantswarm.io/version: 1.x.x
