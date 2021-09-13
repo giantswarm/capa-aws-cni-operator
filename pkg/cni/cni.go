@@ -568,9 +568,10 @@ func (c *CNIService) deleteSubnetNetworkInterfaces(ec2Client *ec2.EC2, subnetID 
 func securityGroupName(clusterName string) string {
 	return fmt.Sprintf("%s-aws-cni", clusterName)
 }
-func securityGroupRuleName(clusterName string) string {
-	return fmt.Sprintf("%s-aws-cni-sg-rule", clusterName)
-}
+
+//func securityGroupRuleName(clusterName string) string {
+//	return fmt.Sprintf("%s-aws-cni-sg-rule", clusterName)
+//}
 func subnetName(clusterName string, azName string) string {
 	return fmt.Sprintf("%s-subnet-cni-%s", clusterName, azName)
 }
