@@ -3,8 +3,14 @@ package key
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	eni "github.com/aws/amazon-vpc-cni-k8s/pkg/apis/crd/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/clientcmd"
 	capa "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -12,12 +18,15 @@ import (
 const (
 	ClusterNameLabel        = "cluster.x-k8s.io/cluster-name"
 	ClusterWatchFilterLabel = "cluster.x-k8s.io/watch-filter"
-	ClusterRole             = "cluster.x-k8s.io/role"
 
 	FinalizerName = "capa-aws-cni-operator.finalizers.giantswarm.io"
+
+	AWSCniOperatorOwnedTag = "capa-aws-cni-operator.giantswarm.io"
+
+	CNINodeSecurityGroupName = "node"
 )
 
-func GetClusterIDFromLabels(t v1.ObjectMeta) string {
+func GetClusterIDFromLabels(t metav1.ObjectMeta) string {
 	return t.GetLabels()[ClusterNameLabel]
 }
 
@@ -48,7 +57,61 @@ func HasCapiWatchLabel(labels map[string]string) bool {
 	return false
 }
 
-func GetWCK8sClient(ctx context.Context, ctrlClient client.Client, clusterName string) (client.Client, error) {
+// GetWCK8sClient will return workload cluster k8s controller-runtime client
+// this is bad but I cannot find easier way how to create a wc k8s client
+func GetWCK8sClient(ctx context.Context, ctrlClient client.Client, clusterName string, clusterNamespace string) (client.Client, error) {
+	var err error
 
-	return nil, nil
+	if _, err := os.Stat(tempKubeconfigFileName(clusterName)); err == nil {
+		// kubeconfig file already exists, no need to fetch and write again
+
+	} else if os.IsNotExist(err) {
+		// kubeconfig dont exists we need to fetch it and write to file
+		var secret corev1.Secret
+		{
+			err = ctrlClient.Get(ctx, client.ObjectKey{
+				Name:      fmt.Sprintf("%s-kubeconfig", clusterName),
+				Namespace: clusterNamespace,
+			},
+				&secret)
+
+			if err != nil {
+				return nil, err
+			}
+		}
+		err = ioutil.WriteFile(tempKubeconfigFileName(clusterName), secret.Data["value"], 0600)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, err
+	}
+
+	config, err := clientcmd.BuildConfigFromFlags("", tempKubeconfigFileName(clusterName))
+	if err != nil {
+		return nil, err
+	}
+
+	scheme := runtime.NewScheme()
+	_ = eni.AddToScheme(scheme)
+
+	wcClient, err := client.New(config, client.Options{Scheme: scheme})
+	if err != nil {
+		return nil, err
+	}
+
+	return wcClient, nil
+}
+
+func HasFinalizer(finalizers []string) bool {
+	for _, f := range finalizers {
+		if f == FinalizerName {
+			return true
+		}
+	}
+	return false
+}
+
+func tempKubeconfigFileName(clusterName string) string {
+	return fmt.Sprintf("/tmp/kubeconfig-%s", clusterName)
 }
