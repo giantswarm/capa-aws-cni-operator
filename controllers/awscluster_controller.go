@@ -91,8 +91,8 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		}, nil
 	}
 
-	if len(awsCluster.Status.Network.SecurityGroups) == 0 {
-		logger.Info("AWSCluster do not have security group set yet")
+	if _, ok := awsCluster.Status.Network.SecurityGroups[key.CNINodeSecurityGroupName]; ok {
+		logger.Info("AWSCluster do not have security group ready yet")
 		return ctrl.Result{
 			Requeue:      true,
 			RequeueAfter: time.Minute * 2,
@@ -119,27 +119,19 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		return ctrl.Result{}, err
 	}
 
-	var clusterSecurityGroupIDs []string
-	{
-		for k, sg := range awsCluster.Status.Network.SecurityGroups {
-			if k == "node" {
-				clusterSecurityGroupIDs = append(clusterSecurityGroupIDs, sg.ID)
-			}
-		}
-
-	}
+	cniSecurityGroupID := awsCluster.Status.Network.SecurityGroups[key.CNINodeSecurityGroupName].ID
 
 	var cniService *cni.CNIService
 	// config for the CNI service
 	config := cni.CNIConfig{
-		AWSSession:              awsClientSession,
-		ClusterName:             clusterName,
-		ClusterSecurityGroupIDs: clusterSecurityGroupIDs,
-		CtrlClient:              nil,              // we only need wc k8s client for resource creation, we dont need it for deletion, when cluster is being deleted it might not be avaiable
-		CNICIDR:                 r.DefaultCNICIDR, // we use default for now, but we might need a way how to get specify per cluster
-		Log:                     logger,
-		VPCAzList:               awsCluster.Spec.NetworkSpec.Subnets.GetUniqueZones(),
-		VPCID:                   awsCluster.Spec.NetworkSpec.VPC.ID,
+		AWSSession:         awsClientSession,
+		ClusterName:        clusterName,
+		CNISecurityGroupID: cniSecurityGroupID,
+		CtrlClient:         nil,              // we only need wc k8s client for resource creation, we dont need it for deletion, when cluster is being deleted it might not be avaiable
+		CNICIDR:            r.DefaultCNICIDR, // we use default for now, but we might need a way how to get specify per cluster
+		Log:                logger,
+		VPCAzList:          awsCluster.Spec.NetworkSpec.Subnets.GetUniqueZones(),
+		VPCID:              awsCluster.Spec.NetworkSpec.VPC.ID,
 	}
 
 	logger.Info("reconciling CR")

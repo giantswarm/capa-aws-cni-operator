@@ -22,6 +22,8 @@ const (
 	FinalizerName = "capa-aws-cni-operator.finalizers.giantswarm.io"
 
 	AWSCniOperatorOwnedTag = "capa-aws-cni-operator.giantswarm.io"
+
+	CNINodeSecurityGroupName = "node"
 )
 
 func GetClusterIDFromLabels(t metav1.ObjectMeta) string {

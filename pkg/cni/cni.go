@@ -27,25 +27,25 @@ type CNISubnet struct {
 }
 
 type CNIConfig struct {
-	AWSSession              awsclient.ConfigProvider
-	ClusterName             string
-	ClusterSecurityGroupIDs []string
-	CtrlClient              client.Client
-	CNICIDR                 string
-	Log                     logr.Logger
-	VPCAzList               []string
-	VPCID                   string
+	AWSSession         awsclient.ConfigProvider
+	ClusterName        string
+	CNISecurityGroupID string
+	CtrlClient         client.Client
+	CNICIDR            string
+	Log                logr.Logger
+	VPCAzList          []string
+	VPCID              string
 }
 
 type CNIService struct {
-	awsSession              awsclient.ConfigProvider
-	clusterName             string
-	clusterSecurityGroupIDs []string
-	ctrlClient              client.Client
-	cniCIDR                 string
-	log                     logr.Logger
-	vpcAzList               []string
-	vpcID                   string
+	awsSession         awsclient.ConfigProvider
+	clusterName        string
+	cniSecurityGroupID string
+	ctrlClient         client.Client
+	cniCIDR            string
+	log                logr.Logger
+	vpcAzList          []string
+	vpcID              string
 }
 
 func New(c CNIConfig) (*CNIService, error) {
@@ -57,8 +57,8 @@ func New(c CNIConfig) (*CNIService, error) {
 		return nil, errors.New("failed to generate new cni service from empty ClusterName")
 	}
 
-	if len(c.ClusterSecurityGroupIDs) == 0 {
-		return nil, errors.New("failed to generate new cni service from empty ClusterSecurityGroupIDs")
+	if c.CNISecurityGroupID == "" {
+		return nil, errors.New("failed to generate new cni service from empty CNISecurityGroupID")
 	}
 
 	_, _, err := net.ParseCIDR(c.CNICIDR)
@@ -79,14 +79,14 @@ func New(c CNIConfig) (*CNIService, error) {
 	}
 
 	s := &CNIService{
-		awsSession:              c.AWSSession,
-		clusterName:             c.ClusterName,
-		clusterSecurityGroupIDs: c.ClusterSecurityGroupIDs,
-		ctrlClient:              c.CtrlClient,
-		cniCIDR:                 c.CNICIDR,
-		log:                     c.Log,
-		vpcAzList:               c.VPCAzList,
-		vpcID:                   c.VPCID,
+		awsSession:         c.AWSSession,
+		clusterName:        c.ClusterName,
+		cniSecurityGroupID: c.CNISecurityGroupID,
+		ctrlClient:         c.CtrlClient,
+		cniCIDR:            c.CNICIDR,
+		log:                c.Log,
+		vpcAzList:          c.VPCAzList,
+		vpcID:              c.VPCID,
 	}
 	return s, nil
 }
@@ -106,14 +106,8 @@ func (c *CNIService) Reconcile() error {
 		return err
 	}
 
-	// create cni security group
-	//securityGroupID, err := c.createSecurityGroup(ec2Client)
-	//if err != nil {
-	//	return err
-	//}
-
 	// apply eni configs to WC k8s
-	err = c.applyENIConfigs(cniSubnets, c.clusterSecurityGroupIDs[0])
+	err = c.applyENIConfigs(cniSubnets, c.cniSecurityGroupID)
 	if err != nil {
 		return err
 	}
@@ -238,133 +232,6 @@ func (c *CNIService) createSubnets(ec2Client *ec2.EC2) ([]CNISubnet, error) {
 	return cniSubnets, nil
 }
 
-// createSecurityGroup will create security group for aws cni
-// and apply security ingress rules to allow all traffic for all security groups in the cluster
-/*
-func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
-	var securityGroupID string
-
-	// first we check if the security group already exist
-	i := &ec2.DescribeSecurityGroupsInput{
-		Filters: []*ec2.Filter{
-			{
-				Name:   aws.String("tag:Name"),
-				Values: aws.StringSlice([]string{securityGroupName(c.clusterName)}),
-			},
-			{
-				Name:   aws.String(fmt.Sprintf("tag:%s", key.AWSCniOperatorOwnedTag)),
-				Values: aws.StringSlice([]string{"owned"}),
-			},
-			{
-				Name:   aws.String("vpc-id"),
-				Values: aws.StringSlice([]string{c.vpcID}),
-			},
-		},
-	}
-	o, err := ec2Client.DescribeSecurityGroups(i)
-
-	if err == nil && len(o.SecurityGroups) == 1 {
-		// group already exists just save the ID
-		securityGroupID = *o.SecurityGroups[0].GroupId
-		c.log.Info(fmt.Sprintf("cni security group %s already created with id %s", securityGroupName(c.clusterName), securityGroupID))
-	} else if err == nil {
-		// security group does not exist, create a new one
-		i := &ec2.CreateSecurityGroupInput{
-			VpcId:     aws.String(c.vpcID),
-			GroupName: aws.String(securityGroupName(c.clusterName)),
-			TagSpecifications: []*ec2.TagSpecification{
-				{
-					Tags: []*ec2.Tag{
-						{
-							Key:   aws.String(key.AWSCniOperatorOwnedTag),
-							Value: aws.String("owned"),
-						},
-						{
-							Key:   aws.String("Name"),
-							Value: aws.String(securityGroupName(c.clusterName)),
-						},
-					},
-					ResourceType: aws.String("security-group"),
-				},
-			},
-			Description: aws.String(fmt.Sprintf("aws cni security group for cluster %s", c.clusterName)),
-		}
-
-		o, err := ec2Client.CreateSecurityGroup(i)
-		if err != nil {
-			c.log.Error(err, "failed to create security group")
-			return "", err
-		}
-		securityGroupID = *o.GroupId
-		c.log.Info(fmt.Sprintf("created a new cni security group %s with id %s", securityGroupName(c.clusterName), securityGroupID))
-
-	} else {
-		c.log.Error(err, fmt.Sprintf("failed to fetch security group %s", securityGroupName(c.clusterName)))
-		return "", err
-	}
-
-	i2 := &ec2.DescribeSecurityGroupRulesInput{
-		Filters: []*ec2.Filter{
-			{
-				Name:   aws.String("tag:Name"),
-				Values: aws.StringSlice([]string{securityGroupRuleName(c.clusterName)}),
-			},
-		},
-	}
-
-	o2, err := ec2Client.DescribeSecurityGroupRules(i2)
-	if err != nil {
-		c.log.Error(err, fmt.Sprintf("failed to describe security group rules for security group %s", securityGroupName(c.clusterName)))
-		return "", err
-	}
-
-	// create rules only if they are missing
-	if len(o2.SecurityGroupRules) == 0 {
-		var sgGroupPairs []*ec2.UserIdGroupPair
-		// create security group ingress rule to allow traffic from each security group that is in the cluster
-		for _, sg := range c.clusterSecurityGroupIDs {
-			sgGroupPairs = append(sgGroupPairs, &ec2.UserIdGroupPair{GroupId: aws.String(sg)})
-		}
-		// also add aws-cni sg itself, so traffic can go across pods from different nodes
-		sgGroupPairs = append(sgGroupPairs, &ec2.UserIdGroupPair{GroupId: aws.String(securityGroupID)})
-
-		i := &ec2.AuthorizeSecurityGroupIngressInput{
-			GroupId: aws.String(securityGroupID),
-			IpPermissions: []*ec2.IpPermission{
-				{
-					IpProtocol:       aws.String("-1"),
-					FromPort:         aws.Int64(-1),
-					ToPort:           aws.Int64(-1),
-					UserIdGroupPairs: sgGroupPairs,
-				},
-			},
-			TagSpecifications: []*ec2.TagSpecification{
-				{
-					Tags: []*ec2.Tag{
-						{
-							Key:   aws.String("Name"),
-							Value: aws.String(securityGroupRuleName(c.clusterName)),
-						},
-					},
-					ResourceType: aws.String("security-group-rule"),
-				},
-			},
-		}
-		_, err := ec2Client.AuthorizeSecurityGroupIngress(i)
-		if IsAlreadyExists(err) {
-			c.log.Info("security group ingress rule already exists")
-		} else if err != nil {
-			c.log.Error(err, "failed to create security group ingress rule")
-			return "", err
-		}
-		c.log.Info(fmt.Sprintf("created a new security group ingress rule to allow traffic from %s security groups", c.clusterSecurityGroupIDs))
-	} else {
-		c.log.Info("security group ingress rules to allow traffic cni traffic already exists")
-	}
-
-	return securityGroupID, nil
-}
-*/
 // applyENIConfigs will create or update ENIConfigs in the WC k8s api
 func (c *CNIService) applyENIConfigs(subnets []CNISubnet, securityGroupID string) error {
 	ctx := context.TODO()
@@ -395,6 +262,9 @@ func (c *CNIService) applyENIConfigs(subnets []CNISubnet, securityGroupID string
 		if IsApiNotReadyYet(err) {
 			c.log.Info("WC k8s api is not read yet")
 			return errors.New("WC k8s api is not read yet")
+		} else if IsENIConfigNotRegistered(err) {
+			c.log.Info("WC k8s api do not have ENIConfig CRD yet")
+			return errors.New("WC k8s api do not have ENIConfig CRD yet")
 		} else if k8serrors.IsAlreadyExists(err) {
 			var latest v1alpha1.ENIConfig
 
@@ -425,56 +295,10 @@ func (c *CNIService) applyENIConfigs(subnets []CNISubnet, securityGroupID string
 func (c *CNIService) Delete() error {
 	ec2Client := ec2.New(c.awsSession)
 
-	err := c.deleteSecurityGroup(ec2Client)
+	err := c.deleteSubnets(ec2Client)
 	if err != nil {
 		return err
 	}
-
-	err = c.deleteSubnets(ec2Client)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// deleteSecurityGroup deletes aws cni security group
-func (c *CNIService) deleteSecurityGroup(ec2Client *ec2.EC2) error {
-	// first we check if the security group  exist and fetch its ID
-	inputDescribe := &ec2.DescribeSecurityGroupsInput{
-		Filters: []*ec2.Filter{
-			{
-				Name:   aws.String("tag:Name"),
-				Values: aws.StringSlice([]string{securityGroupName(c.clusterName)}),
-			},
-			{
-				Name:   aws.String(fmt.Sprintf("tag:%s", key.AWSCniOperatorOwnedTag)),
-				Values: aws.StringSlice([]string{"owned"}),
-			},
-			{
-				Name:   aws.String("vpc-id"),
-				Values: aws.StringSlice([]string{c.vpcID}),
-			},
-		},
-	}
-	o, err := ec2Client.DescribeSecurityGroups(inputDescribe)
-	if err != nil {
-		c.log.Error(err, "failed to describe security group for deletion")
-		return err
-	}
-
-	if len(o.SecurityGroups) > 0 {
-		inputDelete := &ec2.DeleteSecurityGroupInput{
-			GroupId: o.SecurityGroups[0].GroupId,
-		}
-
-		_, err = ec2Client.DeleteSecurityGroup(inputDelete)
-		if IsNotFound(err) {
-			//security group is already deleted, ignoring error
-		} else if err != nil {
-			c.log.Error(err, fmt.Sprintf("failed to delete security group %s", securityGroupName(c.clusterName)))
-		}
-	}
-
 	return nil
 }
 
@@ -565,13 +389,6 @@ func (c *CNIService) deleteSubnetNetworkInterfaces(ec2Client *ec2.EC2, subnetID 
 	return nil
 }
 
-func securityGroupName(clusterName string) string {
-	return fmt.Sprintf("%s-aws-cni", clusterName)
-}
-
-//func securityGroupRuleName(clusterName string) string {
-//	return fmt.Sprintf("%s-aws-cni-sg-rule", clusterName)
-//}
 func subnetName(clusterName string, azName string) string {
 	return fmt.Sprintf("%s-subnet-cni-%s", clusterName, azName)
 }
