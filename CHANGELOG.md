@@ -7,4 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Implement basic functionality.
+
 [Unreleased]: https://github.com/giantswarm/capa-aws-cni-operator/tree/master
