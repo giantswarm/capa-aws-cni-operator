@@ -3,50 +3,68 @@ kind: ClusterRole
 metadata:
   name: {{ include "resource.default.name"  . }}
   labels:
-    {{- include "labels.common" . | nindent 4 }}
+  {{- include "labels.common" . | nindent 4 }}
 rules:
-  - apiGroups:
-      - ""
-    resources:
-      - pods
-    verbs:
-      - "*"
-  - apiGroups:
-      - ""
-    resources:
-      - secrets
-    verbs:
-      - get
-      - list
-  - apiGroups:
-      - cluster.x-k8s.io
-      - infrastructure.cluster.x-k8s.io
-    resources:
-      - awsclusters
-      - awsclusters/status
-      - awsclusterroleidentities
-      - awsclusterroleidentities/status
-      - awsclustercontrolleridentities
-      - awsclusterstaticidentities
-      - clusters
-      - clusters/statu
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
+- apiGroups:
+  - cluster.x-k8s.io
+  - infrastructure.cluster.x-k8s.io
+  resources:
+  - awsclusters
+  - awsclusters/status
+  - awsclusterroleidentities
+  - awsclusterroleidentities/status
+  - awsclustercontrolleridentities
+  - awsclusterstaticidentities
+  - clusters
+  - clusters/statu
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+- apiGroups:
+    - ""
+  resources:
+    - configmaps
+  verbs:
+    - get
+    - list
+    - patch
+    - update
+    - watch
+    - create
+- apiGroups:
+    - ""
+  resources:
+    - events
+  verbs:
+    - create
+- apiGroups:
+    - ""
+  resources:
+    - secrets
+  verbs:
+    - list
+    - get
+    - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: {{ include "resource.default.name"  . }}
   labels:
-    {{- include "labels.common" . | nindent 4 }}
+  {{- include "labels.common" . | nindent 4 }}
 subjects:
-  - kind: ServiceAccount
-    name: {{ include "resource.default.name"  . }}
-    namespace: {{ include "resource.default.namespace"  . }}
+- kind: ServiceAccount
+  name: {{ include "resource.default.name"  . }}
+  namespace: {{ include "resource.default.namespace"  . }}
 roleRef:
   kind: ClusterRole
   name: {{ include "resource.default.name"  . }}
@@ -57,27 +75,27 @@ kind: ClusterRole
 metadata:
   name: {{ include "resource.psp.name" . }}
   labels:
-    {{- include "labels.common" . | nindent 4 }}
+  {{- include "labels.common" . | nindent 4 }}
 rules:
-  - apiGroups:
-      - extensions
-    resources:
-      - podsecuritypolicies
-    verbs:
-      - use
-    resourceNames:
-      - {{ include "resource.psp.name" . }}
+- apiGroups:
+  - extensions
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use
+  resourceNames:
+  - {{ include "resource.psp.name" . }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: {{ include "resource.psp.name" . }}
   labels:
-    {{- include "labels.common" . | nindent 4 }}
+  {{- include "labels.common" . | nindent 4 }}
 subjects:
-  - kind: ServiceAccount
-    name: {{ include "resource.default.name"  . }}
-    namespace: {{ include "resource.default.namespace"  . }}
+- kind: ServiceAccount
+  name: {{ include "resource.default.name"  . }}
+  namespace: {{ include "resource.default.namespace"  . }}
 roleRef:
   kind: ClusterRole
   name: {{ include "resource.psp.name" . }}

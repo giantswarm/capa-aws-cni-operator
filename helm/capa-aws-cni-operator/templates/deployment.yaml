@@ -1,74 +1,52 @@
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "resource.default.name"  . }}
   namespace: {{ include "resource.default.namespace"  . }}
   labels:
-    {{- include "labels.common" . | nindent 4 }}
+  {{- include "labels.common" . | nindent 4 }}
 spec:
   replicas: 1
+  revisionHistoryLimit: 3
   selector:
     matchLabels:
-      {{- include "labels.selector" . | nindent 6 }}
+  {{- include "labels.selector" . | nindent 6 }}
   strategy:
     type: Recreate
   template:
     metadata:
-      labels:
-        {{- include "labels.common" . | nindent 8 }}
       annotations:
         releaseRevision: {{ .Release.Revision | quote }}
+      labels:
+    {{- include "labels.selector" . | nindent 8 }}
     spec:
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - podAffinityTerm:
-              labelSelector:
-                matchLabels:
-                  {{- include "labels.selector" . | nindent 18 }}
-              topologyKey: kubernetes.io/hostname
-            weight: 100
-      volumes:
-      - name: {{ include "name" . }}-configmap
-        configMap:
-          name: {{ include "resource.default.name"  . }}
-          items:
-          - key: config.yaml
-            path: config.yaml
-      - name: {{ include "name" . }}-secret
-        secret:
-          secretName: {{ include "resource.default.name"  . }}
-          items:
-          - key: secret.yaml
-            path: secret.yaml
       serviceAccountName: {{ include "resource.default.name"  . }}
       securityContext:
         runAsUser: {{ .Values.pod.user.id }}
         runAsGroup: {{ .Values.pod.group.id }}
       containers:
-      - name: {{ include "name" . }}
+      - name: {{ .Chart.Name }}
         image: "{{ .Values.registry.domain }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+        env:
+        - name: AWS_SHARED_CREDENTIALS_FILE
+          value: /home/.aws/credentials
+        command:
+        - /manager
         args:
-        - daemon
-        - --config.dirs=/var/run/{{ include "name" . }}/configmap/,/var/run/{{ include "name" . }}/secret/
-        - --config.files=config,secret
-        volumeMounts:
-        - name: {{ include "name" . }}-configmap
-          mountPath: /var/run/{{ include "name" . }}/configmap/
-        - name: {{ include "name" . }}-secret
-          mountPath: /var/run/{{ include "name" . }}/secret/
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8000
-          initialDelaySeconds: 30
-          timeoutSeconds: 1
+        - --leader-elect
         resources:
           requests:
-            cpu: 100m
-            memory: 220Mi
+            cpu: 170m
+            memory: 200Mi
           limits:
-            cpu: 100m
+            cpu: 170m
             memory: 220Mi
-      imagePullSecrets:
-      - name: {{ include "resource.pullSecret.name" . }}
+        volumeMounts:
+        - mountPath: /home/.aws
+          name: credentials
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: credentials
+        secret:
+          secretName: {{ include "resource.default.name" . }}-aws-credentials
