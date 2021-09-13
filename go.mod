@@ -5,6 +5,7 @@ go 1.16
 require (
 	cloud.google.com/go v0.46.3 // indirect
 	github.com/Azure/go-autorest/autorest v0.11.18 // indirect
+	github.com/aws/amazon-vpc-cni-k8s v1.7.5
 	github.com/aws/aws-sdk-go v1.39.4
 	github.com/go-logr/logr v0.1.0
 	github.com/google/go-cmp v0.5.6 // indirect
