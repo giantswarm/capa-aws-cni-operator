@@ -240,6 +240,7 @@ func (c *CNIService) createSubnets(ec2Client *ec2.EC2) ([]CNISubnet, error) {
 
 // createSecurityGroup will create security group for aws cni
 // and apply security ingress rules to allow all traffic for all security groups in the cluster
+/*
 func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 	var securityGroupID string
 
@@ -363,7 +364,7 @@ func (c *CNIService) createSecurityGroup(ec2Client *ec2.EC2) (string, error) {
 
 	return securityGroupID, nil
 }
-
+*/
 // applyENIConfigs will create or update ENIConfigs in the WC k8s api
 func (c *CNIService) applyENIConfigs(subnets []CNISubnet, securityGroupID string) error {
 	ctx := context.TODO()
