@@ -76,7 +76,7 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	logger = logger.WithValues("cluster", clusterName)
 
 	if awsCluster.Spec.NetworkSpec.VPC.ID == "" {
-		logger.Info("AWSCluster do not have vpc id set yet")
+		logger.Info("AWSCluster does not have vpc id set yet")
 		return ctrl.Result{
 			Requeue:      true,
 			RequeueAfter: time.Minute * 2,
@@ -84,7 +84,7 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	}
 
 	if len(awsCluster.Spec.NetworkSpec.Subnets.GetUniqueZones()) == 0 {
-		logger.Info("AWSCluster do not have subnets set yet")
+		logger.Info("AWSCluster does not have subnets set yet")
 		return ctrl.Result{
 			Requeue:      true,
 			RequeueAfter: time.Minute * 2,
@@ -92,7 +92,7 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	}
 
 	if _, ok := awsCluster.Status.Network.SecurityGroups[key.CNINodeSecurityGroupName]; !ok {
-		logger.Info("AWSCluster do not have security group ready yet")
+		logger.Info("AWSCluster does not have security group ready yet")
 		return ctrl.Result{
 			Requeue:      true,
 			RequeueAfter: time.Minute * 2,
