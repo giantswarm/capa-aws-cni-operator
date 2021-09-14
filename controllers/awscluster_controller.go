@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	capa "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -52,10 +53,17 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	logger := r.Log.WithValues("namespace", req.Namespace, "awsCluster", req.Name)
 
 	awsCluster := &capa.AWSCluster{}
-	if err := r.Get(ctx, req.NamespacedName, awsCluster); err != nil {
-		logger.Error(err, "AWSCluster does not exist")
+	err = r.Get(ctx, req.NamespacedName, awsCluster)
+	if k8serrors.IsNotFound(err) {
+		// CR is gone, stop reconciling
+		return ctrl.Result{
+			Requeue: false,
+		}, nil
+	} else if err != nil {
+		logger.Error(err, "failed fetching AWSCluster CR")
 		return ctrl.Result{}, err
 	}
+
 	// check if CR got CAPI watch-filter label
 	if !key.HasCapiWatchLabel(awsCluster.Labels) {
 		logger.Info(fmt.Sprintf("AWSCluster do not have %s=%s label, ignoring CR", key.ClusterWatchFilterLabel, "capi"))
@@ -66,6 +74,30 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 	clusterName := key.GetClusterIDFromLabels(awsCluster.ObjectMeta)
 
 	logger = logger.WithValues("cluster", clusterName)
+
+	if awsCluster.Spec.NetworkSpec.VPC.ID == "" {
+		logger.Info("AWSCluster does not have vpc id set yet")
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: time.Minute * 2,
+		}, nil
+	}
+
+	if len(awsCluster.Spec.NetworkSpec.Subnets.GetUniqueZones()) == 0 {
+		logger.Info("AWSCluster does not have subnets set yet")
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: time.Minute * 2,
+		}, nil
+	}
+
+	if _, ok := awsCluster.Status.Network.SecurityGroups[key.CNINodeSecurityGroupName]; !ok {
+		logger.Info("AWSCluster does not have security group ready yet")
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: time.Minute * 2,
+		}, nil
+	}
 
 	var awsClientGetter *awsclient.AwsClient
 	{
@@ -87,49 +119,83 @@ func (r *AWSClusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) 
 		return ctrl.Result{}, err
 	}
 
+	cniSecurityGroupID := awsCluster.Status.Network.SecurityGroups[key.CNINodeSecurityGroupName].ID
+
 	var cniService *cni.CNIService
-	{
-
-		wcClient, err := key.GetWCK8sClient(ctx, r.Client, clusterName)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		c := cni.CNIConfig{
-			AWSSession: awsClientSession,
-			CtrlClient: wcClient,
-			CNICIDR:    r.DefaultCNICIDR, // we use default for now, but we might need a way how to get specify per cluster
-		}
-		cniService, err = cni.New(c)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	// config for the CNI service
+	config := cni.CNIConfig{
+		AWSSession:         awsClientSession,
+		ClusterName:        clusterName,
+		CNISecurityGroupID: cniSecurityGroupID,
+		CtrlClient:         nil,              // we only need wc k8s client for resource creation, we dont need it for deletion, when cluster is being deleted it might not be avaiable
+		CNICIDR:            r.DefaultCNICIDR, // we use default for now, but we might need a way how to get specify per cluster
+		Log:                logger,
+		VPCAzList:          awsCluster.Spec.NetworkSpec.Subnets.GetUniqueZones(),
+		VPCID:              awsCluster.Spec.NetworkSpec.VPC.ID,
 	}
 
+	logger.Info("reconciling CR")
+	// delete CNI resource
 	if awsCluster.DeletionTimestamp != nil {
+		cniService, err = cni.New(config)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 		err = cniService.Delete()
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 
-		// remove finalizer from AWSCluster
-		controllerutil.RemoveFinalizer(awsCluster, key.FinalizerName)
-		err = r.Update(ctx, awsCluster)
+		err = r.Get(ctx, req.NamespacedName, awsCluster)
 		if err != nil {
-			logger.Error(err, "failed to remove finalizer on AWSCluster")
+			logger.Error(err, "failed to fetch latest AWSCluster")
 			return ctrl.Result{}, err
 		}
-	} else {
-		err = cniService.Reconcile()
+		if key.HasFinalizer(awsCluster.Finalizers) {
+			controllerutil.RemoveFinalizer(awsCluster, key.FinalizerName)
+			err = r.Update(ctx, awsCluster)
+			if err != nil {
+				logger.Error(err, "failed to remove finalizer on AWSCluster")
+				return ctrl.Result{}, err
+			}
+		}
+		// all resources were deleted, we dont have to reconcile anymore
+		return ctrl.Result{
+			Requeue: false,
+		}, nil
+	} else { // create CNI resource
+		wcClient, err := key.GetWCK8sClient(ctx, r.Client, clusterName, awsCluster.Namespace)
+		if k8serrors.IsNotFound(err) {
+			logger.Info("WC k8s api secrets are not ready yet")
+			return ctrl.Result{
+				Requeue:      true,
+				RequeueAfter: time.Minute * 2,
+			}, nil
+		} else if err != nil {
+			return ctrl.Result{}, err
+		}
+		config.CtrlClient = wcClient
+		cniService, err = cni.New(config)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 
 		// add finalizer to AWSCluster
-		controllerutil.AddFinalizer(awsCluster, key.FinalizerName)
-		err = r.Update(ctx, awsCluster)
-		if err != nil {
-			logger.Error(err, "failed to add finalizer on AWSCluster")
+		if !key.HasFinalizer(awsCluster.Finalizers) {
+			controllerutil.AddFinalizer(awsCluster, key.FinalizerName)
+			err = r.Update(ctx, awsCluster)
+			if err != nil {
+				logger.Error(err, "failed to add finalizer on AWSCluster")
+				return ctrl.Result{}, err
+			}
+		}
+		err = cniService.Reconcile()
+		if IsAWSCNINotFoundError(err) {
+			return ctrl.Result{
+				Requeue:      true,
+				RequeueAfter: time.Minute * 2,
+			}, nil
+		} else if err != nil {
 			return ctrl.Result{}, err
 		}
 	}
