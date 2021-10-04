@@ -102,6 +102,18 @@ func GetWCK8sClient(ctx context.Context, ctrlClient client.Client, clusterName s
 	return wcClient, nil
 }
 
+// CleanWCK8sKubeconfig will clean old kubeconfig file to avoid issue when cluster is recreated with same ID
+func CleanWCK8sKubeconfig(clusterName string) error {
+	err := os.Remove(tempKubeconfigFileName(clusterName))
+	if os.IsNotExist(err) {
+		// we ignore if the file is already deleted
+	} else if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func HasFinalizer(finalizers []string) bool {
 	for _, f := range finalizers {
 		if f == FinalizerName {

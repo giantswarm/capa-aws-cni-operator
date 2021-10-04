@@ -299,6 +299,13 @@ func (c *CNIService) Delete() error {
 	if err != nil {
 		return err
 	}
+
+	err = key.CleanWCK8sKubeconfig(c.clusterName)
+	if err != nil {
+		c.log.Error(err, fmt.Sprintf("failed to delete local kubeconfig file for cluster %s", c.clusterName))
+		return err
+	}
+
 	return nil
 }
 
