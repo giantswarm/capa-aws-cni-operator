@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
 - Add VerticalPodAutoscaler CR.
+- `PodSecurityPolicy` are removed on newer k8s versions, so only apply it if object is registered in the k8s API.
 
 ## [0.1.1] - 2021-10-04
 
