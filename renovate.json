@@ -1,8 +1,9 @@
 {
   "extends": [
     "config:base",
-    ":reviewer(team:team-phoenix)"
+    ":reviewer(team:team-hydra)"
   ],
+  "labels": ["dependencies", "renovate"],
   "packageRules": [
     {
       "matchPackagePatterns": [".*giantswarm.*"],
@@ -19,7 +20,7 @@
     },
     {
       "excludePackagePatterns": [".*giantswarm.*" ,"^k8s.io", "^sigs.k8s.io"],
-      "groupName": "etc modules"
+      "groupName": "misc modules"
     },
     {
       "matchPackagePatterns": ["^sigs.k8s.io/cluster*"],
@@ -43,7 +44,8 @@
   ],
   "ignoreDeps": [
     "architect",
-    "zricethezav/gitleaks-action"
+    "zricethezav/gitleaks-action",
+    "actions/setup-go"
   ],
   "schedule": [ "after 6am on thursday" ]
 }
